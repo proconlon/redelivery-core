@@ -1,0 +1,19 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Start the example service
+# s6-overlay docs: https://github.com/just-containers/s6-overlay
+# ==============================================================================
+
+bashio::log.info "Initializing Re:Delivery..."
+
+WEB_PORT=$(bashio::config 'web_port' || echo "3140")
+
+bashio::log.info "Starting Re:Delivery web server on port ${WEB_PORT}"
+
+#chmod +x /app/redelivery
+
+bashio::log.info "Now running!"
+
+
+#exec /app/redelivery
+exec sleep infinity

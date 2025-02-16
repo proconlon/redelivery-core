@@ -1,4 +1,6 @@
-# Example Home Assistant add-on repository
+# Re:Delivery
+
+Local, private package tracking from your email inbox.
 
 This repository can be used as a "blueprint" for add-on development to help you get started.
 

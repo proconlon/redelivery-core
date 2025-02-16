@@ -1,4 +1,5 @@
-# Home Assistant Add-on: Example add-on
+# Home Assistant Add-on: Re:Delivery 
+Local, private package tracking from your email inbox. 
 
 ## How to use
 

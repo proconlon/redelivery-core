@@ -1,0 +1,30 @@
+# https://developers.home-assistant.io/docs/add-ons/configuration#add-on-config
+name: "Re:Delivery - Email Based Order Tracking"
+version: "0.0.1"
+slug: redelivery
+description: "Local, private package tracking from your email inbox"
+url: "https://github.com/proconlon/redelivery"
+arch:
+  - armhf
+  - armv7
+  - aarch64
+  - amd64
+  - i386
+startup: application
+boot: auto
+webui: "http://[HOST]:[PORT:3140]/dashboard"
+init: false
+map:
+  - config:rw
+options:
+  email_user: "your_email@gmail.com"
+  email_pass: "your_APP_password"
+  web_port: 3140
+schema:
+  email_user: str
+  email_pass: str
+  web_port: int
+ports:
+  3140/tcp: 3140
+host_network: true
+image: "ghcr.io/proconlon/redelivery-{arch}"
