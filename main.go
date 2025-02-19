@@ -1,57 +1,42 @@
 package main
 
 import (
-	"fmt"
-	"html/template"
+	"encoding/json"
 	"log"
 	"net/http"
 	"os"
-	"time"
+
+	"github.com/joho/godotenv"
+
+	"github.com/proconlon/redelivery-core/email"
+	"github.com/proconlon/redelivery-core/storage"
 )
 
-// Health check handler
-func healthHandler(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintln(w, "OK")
-}
-
-// Placeholder for tracking status
-func statusHandler(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintln(w, `{"status": "service running"}`)
-}
-
-// Default handler for serving the HTML page
-func defaultHandler(w http.ResponseWriter, r *http.Request) {
-	tmpl, err := template.ParseFiles("web/index.html")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	data := struct {
-		CurrentTime string
-	}{
-		CurrentTime: time.Now().Format(time.RFC1123),
-	}
-
-	err = tmpl.Execute(w, data)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+// API to fetch orders
+func ordersHandler(w http.ResponseWriter, r *http.Request) {
+	orders := storage.LoadOrders()
+	json.NewEncoder(w).Encode(orders)
 }
 
 func main() {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
+	log.Println("Starting Re:Delivery...")
+
+	// Load email credentials from dotenv
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+	emailClient := email.EmailClient{
+		Username: os.Getenv("EMAIL_USER"),
+		Password: os.Getenv("EMAIL_PASS"), // Use app password for Gmail
+		Server:   "imap.gmail.com:993",
 	}
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/health", healthHandler)
-	mux.HandleFunc("/status", statusHandler)
-	mux.HandleFunc("/", defaultHandler) // This will handle all other routes
+	// Fetch emails
+	emailClient.FetchEmails()
 
-	log.Printf("Redelivery-Core running on port %s", port)
-	log.Fatal(http.ListenAndServe(":"+port, mux))
+	http.HandleFunc("/orders", ordersHandler)
+
+	log.Println("Starting Re:Delivery API on port 8080...")
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }
