@@ -1,29 +1,115 @@
-name: Build & Test
+name: Build & Release Redelivery-Core Binaries
 
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Go
+      - name: Set Up Go
         uses: actions/setup-go@v5
         with:
           go-version: 1.24
 
-      - name: Install Dependencies
-        run: go mod tidy
+      - name: Cache Go Modules
+        uses: actions/cache@v3
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
 
-      - name: Build
-        run: go build -o redelivery-core main.go 
+      - name: Run Go Tests
+        run: go test -v ./...
 
-      - name: Run Tests
-        run: go test ./...
+  build:
+    needs: test  # Only build if tests pass
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            goarch: amd64
+          - arch: arm64
+            goarch: arm64
+          - arch: armv7
+            goarch: arm
+            goarm: 7
+          - arch: armhf
+            goarch: arm
+            goarm: 6
+          - arch: i386
+            goarch: 386
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set Up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.24
+
+      - name: Cache Go Modules
+        uses: actions/cache@v3
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Build Binary
+        run: |
+          if [[ -n "${{ matrix.goarm }}" ]]; then
+            GOOS=linux GOARCH=${{ matrix.goarch }} GOARM=${{ matrix.goarm }} go build -o redelivery-core-${{ matrix.arch }} main.go
+          else
+            GOOS=linux GOARCH=${{ matrix.goarch }} go build -o redelivery-core-${{ matrix.arch }} main.go
+          fi
+
+      - name: Upload Artifact to GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: redelivery-core-${{ matrix.arch }}
+          path: redelivery-core-${{ matrix.arch }}
+
+  release:
+    needs: build  # Only release if build succeeds
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Download All Binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Move Binaries to Root
+        run: |
+          mv artifacts/*/* .
+
+      - name: Delete Previous Release
+        run: |
+          gh release delete latest --yes || true
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+
+      - name: Create or Update "latest" Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          body: "This is the latest automatically generated release of Redelivery-Core."
+          files: redelivery-core-*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
